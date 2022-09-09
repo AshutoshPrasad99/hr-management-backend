@@ -5,7 +5,7 @@ const getDbConnection = require("./util/dbConnection");
 const employeeModel = require("./model/employeeModel");
 const taskModel = require("./model/taskModel");
 const attendanceModel = require("./model/attendanceModel");
-const { distinct } = require("./model/employeeModel");
+const { encrypt, decrypt } = require("./util/crypto");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cors({ origin: "*" }));
@@ -23,28 +23,41 @@ app.get("/", async (req, res) => {
 // add employee
 app.post("/add_employee", async (req, res) => {
   const { first_name, last_name, email, contact, password } = req.body;
+  const encPassword = encrypt(password);
+  var employeeFound = null;
   try {
-    const employee = await employeeModel.create({
-      first_name,
-      last_name,
-      email,
-      contact,
-      role: "Employee",
-      password,
-    });
-    res.json(employee);
+    employeeFound = await employeeModel.findOne({ email });
   } catch (err) {
-    res.status(500).send(err);
+    console.log(err);
+  }
+
+  if (employeeFound == null) {
+    try {
+      const employee = await employeeModel.create({
+        first_name,
+        last_name,
+        email,
+        contact,
+        role: "Employee",
+        password: encPassword,
+      });
+      res.status(200).json(employee);
+    } catch (err) {
+      res.status(500).send(err);
+    }
+  } else {
+    res.status(409).send("email found");
   }
 });
 
 // employee login
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
+  const encPassword = encrypt(password);
   try {
     const employee = await employeeModel.findOne({
-      email: email,
-      password: password,
+      email,
+      password: encPassword,
     });
     res.json(employee);
   } catch (err) {
